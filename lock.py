@@ -1,19 +1,6 @@
 import sys
 import getpass
 
-
-def __rangemod(x, l, u):
-    """
-    rangemod: return *x*'s index in the modulus ring of [l,u] i.e. [0,u-l+1] + l
-    """
-    # place in 0, k range
-    x_p = x - l
-    u_p = u - l
-
-    # perform mod in ring modulus u-l+2 i.e. [0, u-l+1]
-    # and restore range
-    return (x_p % u_p) + l
-
 def __key_extend(key, length):
     if len(key) > length:
         return key[:length]
