@@ -14,66 +14,50 @@ def __rangemod(x, l, u):
     # and restore range
     return (x_p % u_p) + l
 
-def lock(text, pw):
-    text_l = len(text)
-    pw_l = len(pw)
-    encrypted = text
-    idx = 0
+def __key_extend(key, length):
+    if len(key) > length:
+        return key[:length]
+    elif len(key) == length:
+        return key
 
-    # seed text with password
+    while len(key) < length:
+        key += chr((ord(key[-1]) * ord(key[-2])) % 26 + ord('a'))
+
+    return key
+
+def transform(text, pw):
+    transformed = ''
+    assert len(pw) == len(text)
+
+    # one time pad the plaintext
     for i in range(len(pw)):
-        encrypted[i] = __rangemod(pw_l[i] + text[i], ord('A'), ord('Z'))  # for now, stay in uppercase range
-        idx += 1
+        transformed += chr(ord(pw[i]) ^ ord(text[i]))
 
-    # build further characters with prior characters
-    for i in range(idx + 1, len(text)):
-        encrypted[idx] = __rangemod(text[i-1] + text[i], ord('A'), ord('Z'))
-
-    return encrypted
-
-def unlock(encrypted, pw):
-    raise NotImplementedError
+    return transformed
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 2:
         print("Usage: python lock.py <file>")
         return 1
 
-    option = sys.argv[1]
-    filename = sys.argv[2]
-
+    filename = sys.argv[1]
     pw = getpass.getpass()
+    raw = None
 
-    if option == '-e' or '--encrypt':
-        with open(filename, "r") as f:
-            text = f.read()
-            f.close()
-        if text is None:
-            print("Failed to read file")
-            return 1
-        
-        encrypted = lock(text, pw)
-        with open(filename, "w") as f:
-            f.write(encrypted)
-            f.close()
+    with open(filename, "r") as f:
+        raw = f.read()
+        f.close()
 
-    elif option == '-d' or '--decrypt':
-        with open(filename, "r") as f:
-            encrypted = f.read()
-            f.close()
-
-        if encrypted is None:
-            print("Failed to read file")
-            return 1
-        
-        text = unlock(encrypted, pw)
-        with open(filename, "w") as f:
-            f.write(text)
-            f.close()
-
-    else:
-        print("Unrecognized option: {}".format(option))
+    if raw is None:
+        print("Failed to read file")
         return 1
+
+    pw = __key_extend(pw, len(raw))
+    new = transform(raw, pw)
+
+    with open(filename, "w") as f:
+        f.write(new)
+        f.close()
 
     return 0
 
