@@ -1,50 +1,77 @@
 import sys
 import getpass
 
-def __key_extend(key, length):
-    if len(key) > length:
-        return key[:length]
-    elif len(key) == length:
-        return key
+from Crypto.Cipher import AES
 
-    while len(key) < length:
-        key += chr((ord(key[-1]) * ord(key[-2])) % 26 + ord('a'))
+IV = 'g4vhFIR1KncRIyvO'.encode()
 
-    return key
+def __encrypt(plaintext, pw):
+    suite = AES.new(pw, AES.MODE_CBC, IV)
+    ciphertext = suite.encrypt(plaintext)
+    return ciphertext
 
-def transform(text, pw):
-    transformed = ''
-    assert len(pw) == len(text)
+def __decrypt(ciphertext, pw):
+    suite = AES.new(pw, AES.MODE_CBC, IV)
+    plaintext = suite.decrypt(ciphertext)
+    return plaintext
 
-    # one time pad the plaintext
-    for i in range(len(pw)):
-        transformed += chr(ord(pw[i]) ^ ord(text[i]))
+def __pad_nl(text):
+    text_len = len(text)
+    pad = '\n' * (16 -(text_len % 16))
+    return text + pad
 
-    return transformed
+def __strip_nl(text):
+    while text[-2] == '\n' and text[-1] == '\n':
+        text = text[:-1]
+
+    return text
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: python lock.py <file>")
+    if len(sys.argv) != 3:
+        print("Usage: python lock.py (-e|-d|--encrypt|--decrypt) <file>")
         return 1
 
-    filename = sys.argv[1]
+    option = sys.argv[1]
+    filename = sys.argv[2]
     pw = getpass.getpass()
-    raw = None
 
-    with open(filename, "r") as f:
-        raw = f.read()
-        f.close()
-
-    if raw is None:
-        print("Failed to read file")
+    if len(pw) != 16:
+        print('Password must be 16 characters!')
         return 1
 
-    pw = __key_extend(pw, len(raw))
-    new = transform(raw, pw)
+    pw = pw.encode()
 
-    with open(filename, "w") as f:
-        f.write(new)
-        f.close()
+    if option == '-e' or option == '--encrypt':
+        plaintext = None
+        with open(filename, "r") as f:
+            plaintext = f.read()
+            f.close()
+
+        plaintext = __pad_nl(plaintext)
+        plaintext = plaintext.encode()
+        ciphertext = __encrypt(plaintext, pw)
+
+        with open(filename, "wb") as f:
+            f.write(ciphertext)
+            f.close()
+
+    elif option == '-d' or option == '--decrypt':
+        ciphertext = None
+        with open(filename, "rb") as f:
+            ciphertext = f.read()
+            f.close()
+
+        plaintext = __decrypt(ciphertext, pw)
+        plaintext = plaintext.decode()
+        plaintext = __strip_nl(plaintext)
+
+        with open(filename, "w") as f:
+            f.write(str(plaintext))
+            f.close()
+
+    else:
+        print("Unrecognized option: {}".format(option))
+        return 1
 
     return 0
 
